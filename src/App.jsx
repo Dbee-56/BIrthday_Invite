@@ -13,9 +13,9 @@ export default function App() {
   const [timeLeft, setTimeLeft] = useState("");
   const [imgIndex, setImgIndex] = useState(0);
   const audioRef = useRef(null);
-  const [cards, setCards] = useState([]);
-  const [flippedCards, setFlippedCards] = useState([]);
-  const [matched, setMatched] = useState([]);
+  const [clicks, setClicks] = useState(0);
+  const [startTime, setStartTime] = useState(null);
+  const [failed, setFailed] = useState(false);
 
   const images = [
     "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&q=80",
@@ -50,55 +50,28 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (stage === "game") {
-      const emojis = ["🎉", "🎂", "🍕"]; // 3 pairs now
-
-      const shuffled = [...emojis, ...emojis]
-        .sort(() => Math.random() - 0.5)
-        .map((emoji, index) => ({
-          id: index,
-          emoji,
-        }));
-
-      setCards(shuffled);
-      setFlippedCards([]);
-      setMatched([]);
+  const handleTap = () => {
+    if (!startTime) {
+      setStartTime(Date.now());
     }
-  }, [stage]);
 
-  const moveButton = () => {
-    setTimeout(
-      () =>
-        setPosition({ x: Math.random() * 75 + 5, y: Math.random() * 70 + 10 }),
-      Math.max(100, 500 - score * 100),
-    );
-  };
+    const newClicks = clicks + 1;
+    setClicks(newClicks);
 
-  const handleCardClick = (card) => {
-    if (flippedCards.length === 2) return;
-    if (flippedCards.includes(card.id)) return;
-    if (matched.includes(card.id)) return;
+    if (newClicks >= 5) {
+      const timeTaken = Date.now() - startTime;
 
-    const newFlipped = [...flippedCards, card.id];
-    setFlippedCards(newFlipped);
-
-    if (newFlipped.length === 2) {
-      const [first, second] = newFlipped.map((id) =>
-        cards.find((c) => c.id === id),
-      );
-
-      if (first.emoji === second.emoji) {
-        const newMatched = [...matched, first.id, second.id];
-        setMatched(newMatched);
-        setFlippedCards([]);
-
-        if (newMatched.length === cards.length) {
-          fireConfetti();
-          setTimeout(() => setStage("invite"), 800);
-        }
+      if (timeTaken <= 1000) {
+        fireConfetti();
+        setTimeout(() => setStage("invite"), 500);
       } else {
-        setTimeout(() => setFlippedCards([]), 800);
+        // Fail
+        setFailed(true);
+        setTimeout(() => {
+          setClicks(0);
+          setStartTime(null);
+          setFailed(false);
+        }, 1200);
       }
     }
   };
@@ -106,6 +79,11 @@ export default function App() {
   const startGame = () => {
     setStage("game");
     fireConfetti();
+
+    setClicks(0);
+    setStartTime(null);
+    setFailed(false);
+
     if (audioRef.current) {
       audioRef.current.volume = 0.4;
       audioRef.current.play().catch(() => {});
@@ -449,33 +427,48 @@ export default function App() {
       {stage === "game" && (
         <div className="game-wrap">
           <div className="game-header">
-            <h1 className="game-title">🧠 Memory Challenge</h1>
-            <div style={{ color: "rgba(255,255,255,0.5)" }}>
-              Match all pairs to unlock 🎉
+            <h1 className="game-title">⚡ Tap Challenge</h1>
+
+            <div className="score-bar">
+              <span style={{ color: "rgba(255,255,255,0.5)" }}>
+                Tap 5 times in 1 seconds
+              </span>
             </div>
           </div>
 
-          <div className="memory-grid">
-            {cards.map((card) => {
-              const isFlipped =
-                flippedCards.includes(card.id) || matched.includes(card.id);
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "60%",
+              flexDirection: "column",
+              gap: "20px",
+            }}
+          >
+            <button
+              onClick={handleTap}
+              style={{
+                padding: "20px 40px",
+                borderRadius: "50px",
+                border: "none",
+                fontSize: "18px",
+                fontWeight: "700",
+                background: failed
+                  ? "linear-gradient(135deg, #ff4d4d, #ff0000)"
+                  : "linear-gradient(135deg, #22c55e, #16a34a)",
+                color: "white",
+                cursor: "pointer",
+                boxShadow: "0 0 25px rgba(34,197,94,0.5)",
+                transition: "all 0.2s",
+              }}
+            >
+              {failed ? "Too Slow 😭" : "TAP FAST ⚡"}
+            </button>
 
-              return (
-                <div
-                  key={card.id}
-                  className={`memory-card ${isFlipped ? "flipped" : ""}`}
-                  onClick={() => handleCardClick(card)}
-                >
-                  <div className="memory-inner">
-                    {/* FRONT */}
-                    <div className="memory-face memory-front">❓</div>
-
-                    {/* BACK */}
-                    <div className="memory-face memory-back">{card.emoji}</div>
-                  </div>
-                </div>
-              );
-            })}
+            <div style={{ fontSize: "18px", fontWeight: "600" }}>
+              {clicks}/5
+            </div>
           </div>
         </div>
       )}
